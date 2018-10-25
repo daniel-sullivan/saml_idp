@@ -100,4 +100,6 @@ module SamlIdp
       {}
     end
     private :two_zero
+  end
 end
+
