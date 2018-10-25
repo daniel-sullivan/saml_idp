@@ -52,48 +52,55 @@ module SamlIdp
       Saml::XML::Namespaces::AuthnContext::ClassRef::PASSWORD
     end
 
-    def encode_authn_response(principal, opts = {})
+    def encode_authn_response(service, principal, opts = {})
+      name_id_details = opts[:name_id_details] || saml_request.name_id
       response_id = get_saml_response_id
       reference_id = opts[:reference_id] || get_saml_reference_id
+
+      if opts[:saml_acs_url] && opts[:saml_acs_url] != ''
+        acs_url = opts[:saml_acs_url]
+      else
+        acs_url = saml_request.acs_url
+      end
+
       audience_uri = opts[:audience_uri] || saml_request.issuer || saml_acs_url[/^(.*?\/\/.*?\/)/, 1]
       opt_issuer_uri = opts[:issuer_uri] || issuer_uri
       my_authn_context_classref = opts[:authn_context_classref] || authn_context_classref
-      acs_url = opts[:acs_url] || saml_acs_url
       expiry = opts[:expiry] || 60*60
-      session_expiry = opts[:session_expiry]
       encryption_opts = opts[:encryption] || nil
 
-      SamlResponse.new(
-        reference_id,
-        response_id,
-        opt_issuer_uri,
-        principal,
-        audience_uri,
-        saml_request_id,
-        acs_url,
-        (opts[:algorithm] || algorithm || default_algorithm),
-        my_authn_context_classref,
-        expiry,
-        encryption_opts,
-        session_expiry
+      SamlIdp::SamlResponse.new(
+          reference_id,
+          response_id,
+          opt_issuer_uri,
+          service,
+          principal,
+          audience_uri,
+          saml_request_id,
+          acs_url,
+          (opts[:algorithm] || algorithm || default_algorithm),
+          my_authn_context_classref,
+          name_id_details,
+          expiry,
+          encryption_opts
       ).build
     end
 
-    def encode_logout_response(principal, opts = {})
+    def encode_logout_response(service, principal, opts = {})
       SamlIdp::LogoutResponseBuilder.new(
-        get_saml_response_id,
-        (opts[:issuer_uri] || issuer_uri),
-        saml_logout_url,
-        saml_request_id,
-        (opts[:algorithm] || algorithm || default_algorithm)
+          get_saml_response_id,
+          (opts[:issuer_uri] || issuer_uri),
+          saml_logout_url,
+          saml_request_id,
+          (opts[:algorithm] || algorithm || default_algorithm)
       ).signed
     end
 
-    def encode_response(principal, opts = {})
+    def encode_response(service, principal, opts = {})
       if saml_request.authn_request?
-        encode_authn_response(principal, opts)
+        encode_authn_response(service, principal, opts)
       elsif saml_request.logout_request?
-        encode_logout_response(principal, opts)
+        encode_logout_response(service, principal, opts)
       else
         raise "Unknown request: #{saml_request}"
       end

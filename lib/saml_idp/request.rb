@@ -115,11 +115,10 @@ module SamlIdp
     end
 
     def service_provider?
-      service_provider && service_provider.valid?
+      service_provider.valid?
     end
 
     def service_provider
-      return unless issuer.present?
       @_service_provider ||= ServiceProvider.new((service_provider_finder[issuer] || {}).merge(identifier: issuer))
     end
 
@@ -129,7 +128,25 @@ module SamlIdp
     end
 
     def name_id
-      @_name_id ||= xpath("//saml:NameID", saml: assertion).first.try(:content)
+      begin
+        nameidxml = xpath("//samlp:NameIDPolicy").first
+      rescue
+      end
+
+      if !nameidxml
+        begin
+          nameidxml = xpath("//saml2p:NameIDPolicy").first
+        rescue
+        end
+      end
+
+      if !nameidxml
+        nameid = ['', '2.0', 'persistent'] # Default for clients that aren't picky
+      else
+        nameid = /urn\:oasis\:names\:tc\:SAML\:([0-9]\.[0-9])\:nameid-format\:([A-Za-z]*)/.match(nameidxml.to_s)
+      end
+
+      @_name_id ||= [nameid[1], nameid[2].underscore]
     end
 
     def session_index
